@@ -1,0 +1,58 @@
+#Install relevant packages. When packages like sf and spdep are installed, all the other
+#Packages they depend on are also installed. For example, rgdal will also be installed.
+install.packages("devtools")
+install.packages("sf")
+install.packages("spdep")
+
+
+#After packages are installed the library command needs to be used before package functions can be.
+library(devtools)
+library(sf)
+library(spdep)
+
+#read in the shapefile of interest, note the metadata that is printed out. Enter in your own file path pertaining to where your file is stored
+test <- st_read("Z:/Personal/mvandenburg/RStudio_Demo/ConCounties2.shp")
+
+#project the data to the albers equal area north american projection. This style is proj4string.
+test_proj <- st_transform(test, "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs")
+#convert the polygons to points by centroid.
+test_points <- st_centroid(test_proj)
+
+#calculate k-nearest neighbors for each point.
+test_knn <- knearneigh(test_points, k=15)
+#create a variable that is the neighbors of each point based on knn
+test_nb <- knn2nb(test_knn)
+#turn the neighbors object into a weights list.
+test_listw <- nb2listw(test_nb)
+#turn the column from the data that is life expectancy by county into a stand alone variable
+test_LE <- as.vector(test_proj$Lifeexpect)
+
+#Run a moran's I test along with calculation of statistical significance using 499 permutations
+moran.mc(test_LE, test_listw, nsim = 499)
+#plot the graph of moran's I
+moran.plot(test_LE, test_listw)
+
+#calculate local G, aka Getis-Ord, aka hot spot analysis
+test_G <- localG(test_LE, test_listw)
+
+#turn 'test_G' into vector(not sptaial) variable
+test_G <- as.vector(test_G)
+
+#create new vector to divide all counties into hot, cold, or neither
+hot_cold <- sapply(test_G, function(x){
+  #the value of 3.886 is the critical (z-score) value for statistical significance at a 95% confidence level for over 1000 observations according to the localG documentation
+  if (x > 3.886){
+    x = "Hot"
+  } else if (x < -3.886){
+    x = "Cold"
+  } else {
+    x = "Neither"
+  }
+})
+#bind the new column to the data
+test_proj <- cbind(test_proj, hot_cold)
+
+#create palette for map display
+palette = c("blue", "red", "white")
+#plot the hot and cold spots
+plot (test_proj["hot_cold"], main = "Hot/Cold spots of Life Expectancy", pal = palette)

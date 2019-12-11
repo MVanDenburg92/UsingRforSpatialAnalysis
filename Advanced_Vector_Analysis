@@ -56,3 +56,5 @@ test_proj <- cbind(test_proj, hot_cold)
 palette = c("blue", "red", "white")
 #plot the hot and cold spots
 plot (test_proj["hot_cold"], main = "Hot/Cold spots of Life Expectancy", pal = palette)
+
+#Code Source Eligh Baldwin from class demo by Professor Shadrock Robert
